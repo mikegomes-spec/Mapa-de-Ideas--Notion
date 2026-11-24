@@ -1,0 +1,34 @@
+name: Sincronizar Grafo de Notion
+
+on:
+  schedule:
+    - cron: '0 * * * *' # Se ejecuta automáticamente cada hora
+  workflow_dispatch:   # Permite ejecutarlo manualmente con un botón
+
+permissions:
+  contents: write
+
+jobs:
+  update-graph:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Descargar repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Extraer datos de Notion
+        env:
+          NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+          DATABASE_ID: ${{ secrets.DATABASE_ID }}
+        run: python fetch_notion.py
+
+      - name: Guardar cambios en data.json
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add data.json
+          git diff --quiet && git diff --staged --quiet || (git commit -m "Actualizar grafo de Notion" && git push)

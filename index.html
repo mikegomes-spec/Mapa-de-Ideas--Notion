@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Grafo de Conocimiento - Notion</title>
+  <script type="text/javascript" src="https://unpkg.com"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body, html {
+      width: 100%;
+      height: 100%;
+      background-color: #ffffff;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+      overflow: hidden;
+    }
+    #graph {
+      width: 100%;
+      height: 100%;
+    }
+    #controls {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      z-index: 10;
+      display: flex;
+      gap: 8px;
+      background: rgba(255, 255, 255, 0.9);
+      padding: 6px 10px;
+      border-radius: 8px;
+      border: 1px solid #e5e5e5;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+    }
+    input {
+      border: none;
+      outline: none;
+      font-size: 13px;
+      color: #37352f;
+      background: transparent;
+      width: 160px;
+    }
+    #hint {
+      position: absolute;
+      bottom: 10px;
+      right: 14px;
+      font-size: 11px;
+      color: #9b9a97;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+  <div id="controls">
+    <input type="text" id="search" placeholder="Buscar idea..." />
+  </div>
+  <div id="graph"></div>
+  <div id="hint">Haz clic en un nodo para abrir en Notion</div>
+
+  <script>
+    // Paleta de colores suaves estilo Notion
+    const palette = [
+      { background: '#2383e2', border: '#1a6bb8' }, // Azul
+      { background: '#0f7b6c', border: '#0a594e' }, // Verde
+      { background: '#d9730d', border: '#a85808' }, // Naranja
+      { background: '#9065b0', border: '#6f4b8a' }, // Morado
+      { background: '#e03e3e', border: '#b02c2c' }, // Rojo
+      { background: '#dfab01', border: '#b38900' }  // Amarillo
+    ];
+
+    async function initGraph() {
+      const response = await fetch('data.json?t=' + new Date().getTime());
+      const data = await response.json();
+
+      // Asignar colores por categoría
+      const categories = [...new Set(data.nodes.map(n => n.group))];
+      const groupStyles = {};
+      categories.forEach((cat, idx) => {
+        groupStyles[cat] = { color: palette[idx % palette.length] };
+      });
+
+      const nodes = new vis.DataSet(data.nodes);
+      const edges = new vis.DataSet(data.edges);
+
+      const container = document.getElementById('graph');
+      const options = {
+        groups: groupStyles,
+        nodes: {
+          shape: 'dot',
+          size: 10,
+          font: {
+            size: 12,
+            color: '#37352f',
+            face: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
+          },
+          borderWidth: 1.5
+        },
+        edges: {
+          color: { color: '#d3d1cb', highlight: '#2383e2' },
+          width: 1.2,
+          smooth: { type: 'continuous' }
+        },
+        physics: {
+          stabilization: true,
+          barnesHut: {
+            gravitationalConstant: -2500,
+            springConstant: 0.04,
+            springLength: 95
+          }
+        },
+        interaction: {
+          hover: true,
+          tooltipDelay: 150
+        }
+      };
+
+      const network = new vis.Network(container, { nodes, edges }, options);
+
+      // Abrir página de Notion al hacer clic en un nodo
+      network.on("click", function (params) {
+        if (params.nodes.length > 0) {
+          const nodeId = params.nodes[0];
+          const node = nodes.get(nodeId);
+          if (node && node.url) {
+            window.open(node.url, '_blank');
+          }
+        }
+      });
+
+      // Buscador en tiempo real
+      document.getElementById('search').addEventListener('input', function (e) {
+        const term = e.target.value.toLowerCase();
+        if (!term) {
+          network.unselectAll();
+          return;
+        }
+        const found = data.nodes.find(n => n.label.toLowerCase().includes(term));
+        if (found) {
+          network.selectNodes([found.id]);
+          network.focus(found.id, { scale: 1.2, animation: true });
+        }
+      });
+    }
+
+    initGraph();
+  </script>
+</body>
+</html>
